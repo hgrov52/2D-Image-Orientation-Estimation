@@ -136,10 +136,10 @@ def main():
 	else:
 		net = DenseNet(growthRate=12, depth=100, compression=0.5,
 							bottleneck=True, args=args)
-		if(os.path.isfile('work/pretrain/densenet121-a639ec97.pth')):
-			net.load_state_dict(torch.load('work/pretrain/densenet121-a639ec97.pth'))
-		else:
-			print("no pretrain found")
+		# if(os.path.isfile('work/pretrain/densenet121-a639ec97.pth')):
+		# 	net.load_state_dict(torch.load('work/pretrain/densenet121-a639ec97.pth'))
+		# else:
+		# 	print("no pretrain found")
 		if os.path.exists(args.save):
 			shutil.rmtree(args.save)
 		os.makedirs(args.save, exist_ok=True)

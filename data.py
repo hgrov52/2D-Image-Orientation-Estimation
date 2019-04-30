@@ -311,7 +311,7 @@ class Data_turtles():
 		if(os.path.isfile("data/loaded_data_{}.p".format(self.dataType))):
 			print("Pickle file found, loading data...")
 			(self.data, self.means,self.stds) = pickle.load(open("data/loaded_data_{}.p".format(self.dataType), "rb" ))
-			print("here",self.dataType,self.data.shape)
+			print(self.dataType,len(self.data))
 			return 
 
 		bar = Bar("Preprocessing",max=len(self.imgIds))
