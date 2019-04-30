@@ -55,6 +55,8 @@ def main():
 			print("Program Cancelled")
 			exit(1)	
 
+
+
 	if(args.nClasses == None):
 		if(args.type.startswith('classification')):
 			args.nClasses = 360
@@ -134,6 +136,10 @@ def main():
 	else:
 		net = DenseNet(growthRate=12, depth=100, compression=0.5,
 							bottleneck=True, args=args)
+		if(os.path.isfile('work/pretrain/densenet121-a639ec97.pth')):
+			net.load_state_dict(torch.load('work/pretrain/densenet121-a639ec97.pth'))
+		else:
+			print("no pretrain found")
 		if os.path.exists(args.save):
 			shutil.rmtree(args.save)
 		os.makedirs(args.save, exist_ok=True)
@@ -142,6 +148,7 @@ def main():
 
 	kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 	
+
 	# laod training set
 	if(args.data_type=='turtles'):
 		train_dataset = Data_turtles(dataType = 'train2019', experiment_type='train', args = args)
@@ -151,9 +158,9 @@ def main():
 
 	# laod validation set
 	if(args.data_type=='turtles'):
-		train_dataset = Data_turtles(dataType = 'val2019', experiment_type='validation', args = args)
+		val_dataset = Data_turtles(dataType = 'val2019', experiment_type='validation', args = args)
 	if(args.data_type=='mnist'):
-		train_dataset = Data_mnist(path='./data/mnist/mnist_val.csv',
+		val_dataset = Data_mnist(path='./data/mnist/mnist_val.csv',
 						experiment_type='validation',args=args)
 
 	# load test set
@@ -162,10 +169,13 @@ def main():
 	if(args.data_type=='mnist'):
 		test_dataset = Data_mnist(path='./data/mnist/mnist_test.csv',
 						experiment_type='test',args=args)
-	
 
 	trainLoader = DataLoader(train_dataset,batch_size=args.batchSz,shuffle=True)
 	train_iter = iter(trainLoader)
+	
+	valLoader = DataLoader(val_dataset,batch_size=args.batchSz,shuffle=True)
+	val_iter = iter(trainLoader)
+
 	testLoader = DataLoader(test_dataset,batch_size=args.batchSz,shuffle=False)
 	test_iter = iter(testLoader)
 	print('Successfully Loaded Dataset')
@@ -223,7 +233,6 @@ def train(args, epoch, net, trainLoader, optimizer, trainF):
 	nProcessed = 0
 	nTrain = len(trainLoader.dataset)
 	for batch_idx, (data, target) in enumerate(trainLoader):
-		print("here")
 		if args.cuda:
 			data, target = data.cuda(), target.cuda()
 		data, target = Variable(data), Variable(target)
@@ -276,16 +285,16 @@ def test(args, epoch, net, testLoader, optimizer, testF):
 			test_loss += mse(output, target.float()).data
 			pred = output.data.squeeze()
 			incorrect = 0
-			# for i in range(args.batchSz):
-			# 	print(pred[i],"	",target.data[i],"	",abs(pred[i]-target.data[i].float()))		
-		
+
+
 		predn = pred.cpu().numpy()
 		targn = target.cpu().numpy()
-		labln = label.numpy()
+			
 
+		all_labl = np.hstack((all_labl, label))
 		all_pred = np.hstack((all_pred, predn))
 		all_targ = np.hstack((all_targ, targn))
-		all_labl = np.hstack((all_labl, labln))
+		
 		all_diff = np.hstack((all_diff, difference(args,predn, targn)))
 	
 	test_stats(args, all_pred, all_targ, all_labl, all_diff)

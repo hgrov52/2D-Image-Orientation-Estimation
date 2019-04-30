@@ -76,10 +76,10 @@ class Data_turtles():
 		# get all images containing given categories, select one at random
 		self.catIds = self.coco.getCatIds(catNms=nms[1]);
 		self.imgIds = self.coco.getImgIds(catIds=self.catIds);
-		print("Loading Data: {}".format(dataType))
-		self.preprocess_images()
 		self.args = args
 		self.experiment_type = experiment_type
+		print("Loading Data: {}".format(dataType))
+		self.preprocess_images()
 
 		# need to shuffle if using pickle to load
 		np.random.shuffle(self.data)
@@ -88,55 +88,58 @@ class Data_turtles():
 		return len(self.data)
 
 	def __getitem__(self, index):
-		I, poly, theta, view = self.data[index]
-		resize_to = 64
+		# preprocess all images
+		image, poly, theta, view = self.data[index]
+		# process as each image is loaded
+		# image, poly, theta, view = self.get_image(index)
+
+		resize_to = 32
 		angle = get_angle(self.args)
 		
-		# show=False
-		# poly = torch.tensor(poly).reshape((5,2))
-		# poly = poly[:-1,:]
-		# theta = theta*180/np.pi
-		# h,w = image.shape[:2]
-		# cx,cy = w/2,h/2
-		# frame = np.array([[0,0],
-		# 				  [w,0],
-		# 				  [w,h],
-		# 				  [0,h]])
+		show=False
+		
+		theta = theta*180/np.pi
+		h,w = image.shape[:2]
+		cx,cy = w/2,h/2
+		frame = np.array([[0,0],
+						  [w,0],
+						  [w,h],
+						  [0,h]])
 		
 		
 
-		# mer = self.MER(poly.numpy(),*image.shape[:2])
-		# I = rotate_im(image,theta)
-		# # poly_rot = rotate_box(poly,theta,cx,cy,h,w).reshape((4,2))
-		# # frame_rot = np.round(rotate_box(frame,theta,cx,cy,h,w).reshape((4,2)))
-		# mer_rot = np.round(rotate_box(mer,theta,cx,cy,h,w).reshape((4,2)))
-		# mir = self.MIR(theta*np.pi/180, mer[2,1]-mer[0,1], mer[1,0]-mer[0,0], self.MER(mer_rot, *I.shape[:2]))
-		# # mir = self.MIR(theta*np.pi/180, h, w, self.MER(mer_rot, *I_rot.shape[:2]))
-		# I = I[mir[0,1]:mir[2,1],mir[0,0]:mir[2,0]]
-		
-		# # show the stages of cropping the image
-		# if(show):
-		# 	# =============================================
-		# 	# original image
-		# 	self.ax = plt.gca()
-		# 	self.show_annotation(poly)
-		# 	self.show_MER(mer)
-		# 	plt.imshow(image)
-		# 	plt.show()
-		# 	# =============================================
-		# 	# rotated image
-		# 	I_rot = rotate_im(image,theta)
-		# 	self.ax = plt.gca()
-		# 	self.show_MER(mer_rot)
-		# 	self.show_annotation(mir)
-		# 	plt.imshow(I_rot)
-		# 	plt.show()
-		# 	# =============================================
-		# 	# final cropped image
-		# 	I_cropped = I_rot[mir[0,1]:mir[2,1],mir[0,0]:mir[2,0]]
-		# 	plt.imshow(I_cropped)
-		# 	plt.show()
-		# 	# ==============================================
+		mer = self.MER(poly,*image.shape[:2])
+		I = rotate_im(image,theta)
+		# poly_rot = rotate_box(poly,theta,cx,cy,h,w).reshape((4,2))
+		# frame_rot = np.round(rotate_box(frame,theta,cx,cy,h,w).reshape((4,2)))
+		mer_rot = np.round(rotate_box(mer,theta,cx,cy,h,w).reshape((4,2)))
+		mir = self.MIR(theta*np.pi/180, mer[2,1]-mer[0,1], mer[1,0]-mer[0,0], self.MER(mer_rot, *I.shape[:2]))
+		# mir = self.MIR(theta*np.pi/180, h, w, self.MER(mer_rot, *I_rot.shape[:2]))
+		I = I[mir[0,1]:mir[2,1],mir[0,0]:mir[2,0]]
+
+		# show the stages of cropping the image
+		if(show):
+			# =============================================
+			# original image
+			self.ax = plt.gca()
+			self.show_annotation(poly)
+			self.show_MER(mer)
+			plt.imshow(image)
+			plt.show()
+			# =============================================
+			# rotated image
+			I_rot = rotate_im(image,theta)
+			self.ax = plt.gca()
+			self.show_MER(mer_rot)
+			self.show_annotation(mir)
+			plt.imshow(I_rot)
+			plt.show()
+			# =============================================
+			# final cropped image
+			I_cropped = I_rot[mir[0,1]:mir[2,1],mir[0,0]:mir[2,0]]
+			plt.imshow(I_cropped)
+			plt.show()
+			# ==============================================
 
 		I = transforms.ToPILImage()(I)
 		I = transforms.Resize((resize_to,resize_to))(I)
@@ -144,6 +147,10 @@ class Data_turtles():
 		I = transforms.ToTensor()(I)
 		image_normalized = transforms.Normalize(self.means, self.stds)(I)
 		
+		transform = transforms.Compose([transforms.ToPILImage(), 
+									transforms.Resize((resize_to,resize_to)), 
+									transforms.ToTensor()])
+		image = transform(image)
 
 		if(self.args.type.startswith('classification')):
 			# nCalsses should be a factor of 360
@@ -152,7 +159,7 @@ class Data_turtles():
 		if(self.experiment_type=='example'):
 			return image_normalized, image, angle
 		if(self.experiment_type=='test'):
-			return image_normalized, image, angle, None
+			return image_normalized, image, angle, view
 
 		# during training 
 		return image_normalized, angle
@@ -256,10 +263,54 @@ class Data_turtles():
 		p = PatchCollection(polygons, facecolor='none', edgecolors=color, linewidths=2)
 		self.ax.add_collection(p)
 
+	def test_image(self, image, poly, theta, view):
+		resize_to = 32
+		angle = get_angle(self.args)
+		theta = theta*180/np.pi
+		h,w = image.shape[:2]
+		cx,cy = w/2,h/2
+		mer = self.MER(poly,*image.shape[:2])
+		I = rotate_im(image,theta)
+		mer_rot = np.round(rotate_box(mer,theta,cx,cy,h,w).reshape((4,2)))
+		mir = self.MIR(theta*np.pi/180, mer[2,1]-mer[0,1], mer[1,0]-mer[0,0], self.MER(mer_rot, *I.shape[:2]))
+		I = I[mir[0,1]:mir[2,1],mir[0,0]:mir[2,0]]
+		I = transforms.ToPILImage()(I)
+		I = transforms.Resize((resize_to,resize_to))(I)
+		I = transforms.functional.affine(I,angle,(0,0),1,0)
+		I = transforms.ToTensor()(I)
+		image_normalized = transforms.Normalize((1,1,1), (.5,.5,.5))(I)
+		return True
+
+
+	def get_image(self, index):
+		ID = self.imgIds[index]
+		img = self.coco.loadImgs(ID)[0]
+		I = io.imread('%s/images/%s/%s'%(self.dataDir,self.dataType,img['file_name']))
+		
+		annIds = self.coco.getAnnIds(imgIds=img['id'], catIds=self.catIds, iscrowd=None)
+		try:
+			turtle_body, turtle_head = self.coco.loadAnns(annIds)
+		except:
+			# print(self.coco.loadAnns(annIds))
+			print(len(self.coco.loadAnns(annIds)))
+			print("Error loading image")
+			exit(1)
+
+		return (I,turtle_head['segmentation'],turtle_head['theta'],turtle_head['viewpoint'])
+		
+
 	def preprocess_images(self):
-		if(os. path. isfile("data/loaded_data_{}.p".format(self.dataType))):
+
+		# when loading one image at a time
+		# if(os.path.isfile("data/loaded_data_{}_means_stds.p".format(self.dataType))):
+		# 	print("Pickle file found, loading means and stdevs...")
+		# 	(self.means,self.stds) = pickle.load(open("data/loaded_data_{}_means_stds.p".format(self.dataType), "rb" ))
+		# 	return 
+
+		# when loading whole dataset
+		if(os.path.isfile("data/loaded_data_{}.p".format(self.dataType))):
 			print("Pickle file found, loading data...")
-			(self.data,self.means,self.stds) = pickle.load(open("data/loaded_data_{}.p".format(self.dataType), "rb" ))
+			(self.data, self.means,self.stds) = pickle.load(open("data/loaded_data_{}.p".format(self.dataType), "rb" ))
 			return 
 
 		bar = Bar("Preprocessing",max=len(self.imgIds))
@@ -288,12 +339,27 @@ class Data_turtles():
 				turtle_body, turtle_head = self.coco.loadAnns(annIds)
 			except:
 				# print(self.coco.loadAnns(annIds))
-				print("\nonly one ann")
-			# self.coco.showAnns(anns[1:])
-			# print(anns[1:])
-			# plt.show()
+				print("\nmultiple ann")
+				print(len(self.coco.loadAnns(annIds)))
+				continue
 
-			self.data.append((I,turtle_head['segmentation'],turtle_head['theta'],turtle_head['viewpoint']))
+			poly = turtle_head['segmentation']
+			poly = np.array(poly).reshape((5,2))
+			poly = poly[:-1,:]
+
+			# test to see if augmentation works on image
+			# for filtering out pooly annotated images
+			try:
+				self.test_image(I,poly,turtle_head['theta'],turtle_head['viewpoint'])
+			except:
+				print("\nskipped",ID)
+				continue
+
+			# h,w = I.shape[:2]
+			# if(min(np.min(poly),0)<0 or max(np.max(poly[:,0]),w)>w or max(np.max(poly[:,1]),h)>h):
+			# 	continue
+
+			self.data.append((I,poly,turtle_head['theta'],turtle_head['viewpoint']))
 			bar.next()
 
 		stds = np.sqrt(stds)
@@ -301,7 +367,10 @@ class Data_turtles():
 
 		self.means = means
 		self.stds = stds
+
+		# have the option of loading whole dataset or just means and stdevs
 		pickle.dump((self.data,means,stds), open("data/loaded_data_{}.p".format(self.dataType), "wb" ))
+		pickle.dump((means,stds), open("data/loaded_data_{}_means_stds.p".format(self.dataType), "wb" ))
 
 
 	
