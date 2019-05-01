@@ -30,7 +30,7 @@ plt.switch_backend('tkagg')
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--batchSz', type=int, default=60)
-	parser.add_argument('--nEpochs', type=int, default=20)
+	parser.add_argument('--nEpochs', type=int, default=40)
 	parser.add_argument('--no-cuda', action='store_true')
 	parser.add_argument('--save')
 	parser.add_argument('--seed', type=int, default=1)
@@ -131,6 +131,7 @@ def main():
 		print('Loading Saved Parameters...')
 		net.load_state_dict(torch.load(os.path.join(args.save,'latest-%s.pth'%(args.type))))
 		trainF = open(os.path.join(args.save, 'train.csv'), 'a')
+		valF = open(os.path.join(args.save, 'val.csv'), 'a')
 		testF = open(os.path.join(args.save, 'test.csv'), 'a')
 		print('Successfully Loaded Parameters')
 	else:
@@ -144,6 +145,7 @@ def main():
 			shutil.rmtree(args.save)
 		os.makedirs(args.save, exist_ok=True)
 		trainF = open(os.path.join(args.save, 'train.csv'), 'w')
+		valF = open(os.path.join(args.save, 'val.csv'), 'w')
 		testF = open(os.path.join(args.save, 'test.csv'), 'w')
 
 	kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
@@ -192,21 +194,26 @@ def main():
 	elif args.opt == 'rmsprop':
 		optimizer = optim.RMSprop(net.parameters(), weight_decay=1e-4)
 	
-
+	best_val_loss = val(args, 0, net, valLoader, optimizer, valF)
 	for epoch in range(1, args.nEpochs + 1):
 		adjust_opt(args.opt, optimizer, epoch)
 		if(not args.test):
 			train(args, epoch, net, trainLoader, optimizer, trainF)
-			torch.save(net.state_dict(), os.path.join(args.save, 'latest-%s.pth'%(args.type)))
+			print()
+			val_loss = val(args, epoch, net, valLoader, optimizer, valF)
+			if(val_loss<best_val_loss):
+				print("Saving State Dict: new loss is",val_loss)
+				best_val_loss = val_loss
+				torch.save(net.state_dict(), os.path.join(args.save, 'latest-%s.pth'%(args.type)))
 		
-		print()
+		
 		if(args.test):
 			test(args, epoch, net, testLoader, optimizer, testF)
 		# os.system('./plot.py {} &'.format(args.save))
-		if(args.test):
-			return
+
 
 	trainF.close()
+	valF.close()
 	testF.close()
 
 def mse(t1, t2):
@@ -239,9 +246,6 @@ def train(args, epoch, net, trainLoader, optimizer, trainF):
 		optimizer.zero_grad()
 		output = net(data)
 
-		for i in range(args.batchSz):
-			print(output.data[i],target.data[i])
-
 		if(args.type.startswith('classification')):
 			loss = F.nll_loss(output, target)
 		if(args.type.startswith('regression')):
@@ -268,6 +272,26 @@ def train(args, epoch, net, trainLoader, optimizer, trainF):
 
 		trainF.write('{},{},{}\n'.format(partialEpoch, loss.data[0], err))
 		trainF.flush()	
+
+def val(args, epoch, net, valLoader, optimizer, valF):
+	# net.eval()
+	val_loss = 0
+	nProcessed = 0
+	nTrain = len(valLoader.dataset)
+	for batch_idx, (data, target) in enumerate(valLoader):
+		if args.cuda:
+			data, target = data.cuda(), target.cuda()
+		data, target = Variable(data), Variable(target)
+		output = net(data)
+		if(args.type.startswith('classification')):
+			val_loss += F.nll_loss(output, target).data[0]
+			pred = output.data.max(1)[1] # get the index of the max log-probability
+			incorrect += pred.ne(target.data).cpu().sum()
+		if(args.type.startswith('regression')):
+			val_loss += mse(output, target.float()).data
+			pred = output.data.squeeze()
+	val_loss /= len(valLoader)
+	return val_loss
 
 def test(args, epoch, net, testLoader, optimizer, testF):
 	# net.eval()
@@ -300,6 +324,10 @@ def test(args, epoch, net, testLoader, optimizer, testF):
 		targn = target.cpu().numpy()
 
 
+
+		# if(args.type.endswith('45')):
+		# 	predn = np.where((targn>180) & (predn>180),predn-360,predn)
+		# 	targn = np.where(targn>180,targn-360,targn)
 			
 
 		all_labl = np.hstack((all_labl, label))
