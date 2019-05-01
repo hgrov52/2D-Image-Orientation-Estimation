@@ -194,10 +194,10 @@ def main():
 	elif args.opt == 'rmsprop':
 		optimizer = optim.RMSprop(net.parameters(), weight_decay=1e-4)
 	
-	best_val_loss = val(args, 0, net, valLoader, optimizer, valF)
-	for epoch in range(1, args.nEpochs + 1):
-		adjust_opt(args.opt, optimizer, epoch)
-		if(not args.test):
+	if(not args.test):
+		best_val_loss = val(args, 0, net, valLoader, optimizer, valF)
+		for epoch in range(1, args.nEpochs + 1):
+			adjust_opt(args.opt, optimizer, epoch)
 			train(args, epoch, net, trainLoader, optimizer, trainF)
 			print()
 			val_loss = val(args, epoch, net, valLoader, optimizer, valF)
@@ -207,8 +207,8 @@ def main():
 				torch.save(net.state_dict(), os.path.join(args.save, 'latest-%s.pth'%(args.type)))
 		
 		
-		if(args.test):
-			test(args, epoch, net, testLoader, optimizer, testF)
+	if(args.test):
+		test(args, epoch, net, testLoader, optimizer, testF)
 		# os.system('./plot.py {} &'.format(args.save))
 
 
@@ -277,6 +277,7 @@ def val(args, epoch, net, valLoader, optimizer, valF):
 	# net.eval()
 	val_loss = 0
 	nProcessed = 0
+	incorrect = 0
 	nTrain = len(valLoader.dataset)
 	for batch_idx, (data, target) in enumerate(valLoader):
 		if args.cuda:
