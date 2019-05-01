@@ -91,12 +91,12 @@ def main():
 		test_iter = iter(testLoader)
 		print('Successfully Loaded Parameters')
 
-		net.eval()
-		images_normalized, images, labels = next(test_iter)
+		# net.eval()
+		images_normalized, images, angles, labels = next(test_iter)
 
 		# if args.cuda:
-		# 		images_normalized, labels = images_normalized.cuda(), labels.cuda()
-		data, target = Variable(images_normalized), Variable(labels)
+		# 		images_normalized, angles = images_normalized.cuda(), angles.cuda()
+		data, target = Variable(images_normalized), Variable(angles)
 		output = net(data)
 		if(args.type.startswith('classification')):
 			pred = output.data.max(1)[1] # get the index of the max log-probability
@@ -112,7 +112,7 @@ def main():
 		grid = utils.make_grid(images)
 		plt.imshow(grid.numpy().transpose((1, 2, 0)))
 		plt.axis('off')
-		plt.title(args.type+'\n'+str(labels.numpy())+'\n'+str(pred.numpy()))
+		plt.title(args.type+'\n'+str(angles.numpy())+'\n'+str(pred.int().numpy()))
 		plt.show()  
 
 		return
@@ -176,7 +176,7 @@ def main():
 	valLoader = DataLoader(val_dataset,batch_size=args.batchSz,shuffle=True)
 	val_iter = iter(trainLoader)
 
-	testLoader = DataLoader(test_dataset,batch_size=args.batchSz,shuffle=False)
+	testLoader = DataLoader(test_dataset,batch_size=args.batchSz,shuffle=False, drop_last=True)
 	test_iter = iter(testLoader)
 	print('Successfully Loaded Dataset')
 
@@ -239,10 +239,15 @@ def train(args, epoch, net, trainLoader, optimizer, trainF):
 		optimizer.zero_grad()
 		output = net(data)
 
+		for i in range(args.batchSz):
+			print(output.data[i],target.data[i])
+
 		if(args.type.startswith('classification')):
 			loss = F.nll_loss(output, target)
 		if(args.type.startswith('regression')):
 			loss = mse(output.float(), target.float())
+
+		
 
 		loss.backward()
 		optimizer.step()
@@ -265,7 +270,7 @@ def train(args, epoch, net, trainLoader, optimizer, trainF):
 		trainF.flush()	
 
 def test(args, epoch, net, testLoader, optimizer, testF):
-	net.eval()
+	# net.eval()
 	test_loss = 0
 	incorrect = 0
 	all_pred = np.array([])
@@ -277,6 +282,8 @@ def test(args, epoch, net, testLoader, optimizer, testF):
 			data, target = data.cuda(), target.cuda()
 		data, target = Variable(data), Variable(target)
 		output = net(data)
+		# for i in range(args.batchSz):
+		# 	print(output.data[i],target.data[i])
 		if(args.type.startswith('classification')):
 			test_loss += F.nll_loss(output, target).data[0]
 			pred = output.data.max(1)[1] # get the index of the max log-probability
@@ -286,9 +293,13 @@ def test(args, epoch, net, testLoader, optimizer, testF):
 			pred = output.data.squeeze()
 			incorrect = 0
 
+		
+
 
 		predn = pred.cpu().numpy()
 		targn = target.cpu().numpy()
+
+
 			
 
 		all_labl = np.hstack((all_labl, label))
@@ -297,6 +308,8 @@ def test(args, epoch, net, testLoader, optimizer, testF):
 		
 		all_diff = np.hstack((all_diff, difference(args,predn, targn)))
 	
+	all_pred = np.where(all_pred>360,all_pred%360,all_pred)
+
 	test_stats(args, all_pred, all_targ, all_labl, all_diff)
 
 	test_loss /= len(testLoader) # loss function already averages over batch size

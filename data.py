@@ -35,9 +35,7 @@ class Data_mnist():
 			# nCalsses should be a factor of 360
 			angle = int(angle/int(360/self.args.nClasses))
 
-		if(self.experiment_type=='example'):
-			return image_normalized, image, angle
-		if(self.experiment_type=='test'):
+		if(self.experiment_type=='test' or self.experiment_type=='example'):
 			return image_normalized, image, angle, label
 
 		# during training 
@@ -147,18 +145,18 @@ class Data_turtles():
 		I = transforms.ToTensor()(I)
 		image_normalized = transforms.Normalize(self.means, self.stds)(I)
 		
-		transform = transforms.Compose([transforms.ToPILImage(), 
-									transforms.Resize((resize_to,resize_to)), 
-									transforms.ToTensor()])
-		image = transform(image)
+		
 
 		if(self.args.type.startswith('classification')):
 			# nCalsses should be a factor of 360
 			angle = int(angle/int(360/self.args.nClasses))
 
-		if(self.experiment_type=='example'):
-			return image_normalized, image, angle
-		if(self.experiment_type=='test'):
+		if(self.experiment_type=='test' or self.experiment_type=='example'):
+			image = rotate_im(image,theta)
+			image = transforms.ToPILImage()(image)
+			image = transforms.Resize((128,128))(image)
+			image = transforms.functional.affine(image,angle,(0,0),1,0)
+			image = transforms.ToTensor()(image)
 			return image_normalized, image, angle, view
 
 		# during training 
@@ -313,6 +311,8 @@ class Data_turtles():
 			(self.data, self.means,self.stds) = pickle.load(open("data/loaded_data_{}.p".format(self.dataType), "rb" ))
 			print(self.dataType,len(self.data))
 			return 
+
+
 
 		bar = Bar("Preprocessing",max=len(self.imgIds))
 		self.data = []
