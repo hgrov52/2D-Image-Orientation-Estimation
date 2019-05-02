@@ -27,6 +27,28 @@ from data import *
 import matplotlib.pyplot as plt
 plt.switch_backend('tkagg')
 
+def get_data_loaders(args):
+	if(args.data_type=='turtles'):
+		train_dataset = Data_turtles(dataType = 'train2019', experiment_type='train', args = args)
+		val_dataset = Data_turtles(dataType = 'val2019', experiment_type='validation', args = args)
+		test_dataset = Data_turtles(dataType='test2019', experiment_type='test', args = args)
+
+	if(args.data_type=='mnist'):
+		train_dataset = Data_mnist(path='./data/mnist/mnist_train.csv',
+						experiment_type='train',args=args)
+		val_dataset = Data_mnist(path='./data/mnist/mnist_val.csv',
+						experiment_type='validation',args=args)		
+		test_dataset = Data_mnist(path='./data/mnist/mnist_test.csv',
+						experiment_type='test',args=args)		
+
+	trainLoader = DataLoader(train_dataset,batch_size=args.batchSz,shuffle=True)
+	valLoader = DataLoader(val_dataset,batch_size=args.batchSz,shuffle=True)
+	testLoader = DataLoader(test_dataset,batch_size=args.batchSz,shuffle=False, drop_last=True)
+	
+	print('Successfully Loaded Dataset')
+
+	return trainLoader, valLoader, testLoader
+
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--batchSz', type=int, default=60)
@@ -148,42 +170,11 @@ def main():
 		valF = open(os.path.join(args.save, 'val.csv'), 'w')
 		testF = open(os.path.join(args.save, 'test.csv'), 'w')
 
-	kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
-	
-
-	# laod training set
-	if(args.data_type=='turtles'):
-		train_dataset = Data_turtles(dataType = 'train2019', experiment_type='train', args = args)
-	if(args.data_type=='mnist'):
-		train_dataset = Data_mnist(path='./data/mnist/mnist_train.csv',
-						experiment_type='train',args=args)
-
-	# laod validation set
-	if(args.data_type=='turtles'):
-		val_dataset = Data_turtles(dataType = 'val2019', experiment_type='validation', args = args)
-	if(args.data_type=='mnist'):
-		val_dataset = Data_mnist(path='./data/mnist/mnist_val.csv',
-						experiment_type='validation',args=args)
-
-	# load test set
-	if(args.data_type=='turtles'):
-		test_dataset = Data_turtles(dataType='test2019', experiment_type='test', args = args)
-	if(args.data_type=='mnist'):
-		test_dataset = Data_mnist(path='./data/mnist/mnist_test.csv',
-						experiment_type='test',args=args)
-
-	trainLoader = DataLoader(train_dataset,batch_size=args.batchSz,shuffle=True)
-	train_iter = iter(trainLoader)
-	
-	valLoader = DataLoader(val_dataset,batch_size=args.batchSz,shuffle=True)
-	val_iter = iter(trainLoader)
-
-	testLoader = DataLoader(test_dataset,batch_size=args.batchSz,shuffle=False, drop_last=True)
-	test_iter = iter(testLoader)
-	print('Successfully Loaded Dataset')
+	trainLoader, valLoader, testLoader = get_data_loaders(args)
 
 	print('  + Number of params: {}'.format(
 		sum([p.data.nelement() for p in net.parameters()])))
+
 	if args.cuda:
 		net = net.cuda()
 	if args.opt == 'sgd':
@@ -208,7 +199,7 @@ def main():
 		
 		
 	if(args.test):
-		test(args, epoch, net, testLoader, optimizer, testF)
+		test(args, 1, net, testLoader, optimizer, testF)
 		# os.system('./plot.py {} &'.format(args.save))
 
 
