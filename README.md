@@ -38,4 +38,8 @@ The DenseNet implementation is located at the bottom of train.py.
 
 On first run the data.py file will pre-process the images and save the to a pickle file for next run. 
 
+To obtain data (1.2G), navigate to data/coco/ and run the command 
 
+wget https://cthulhu.dyn.wildme.io/public/datasets/seaturtle.coco.tar.gz
+
+and extract to the same folder. This should be enough for the program to find. 
