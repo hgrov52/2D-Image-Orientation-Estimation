@@ -33,3 +33,5 @@ The cascade of a classification network with 4 outputs feeding into a regression
 
 ## Code 
 Most of the action is happening in train.py. Data is loaded in the file data.py, and the testing results are plotted from utils/test.py. All image augmentation happens in data.py, with some math coming from utils/bbox_utils.py as well as util_functions.py. 
+
+The DenseNet implementation is located at the bottom of train.py.
