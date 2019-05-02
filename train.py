@@ -81,7 +81,12 @@ def main():
 
 	if(args.nClasses == None):
 		if(args.type.startswith('classification')):
-			args.nClasses = 360
+			if(args.type.endswith('8')):
+				args.nClasses = 8
+			elif(args.type.endswith('4')):
+				args.nClasses = 4
+			else:
+				args.nClasses = 360
 		elif(args.type.startswith('regression')):
 			args.nClasses = 1
 		else:
