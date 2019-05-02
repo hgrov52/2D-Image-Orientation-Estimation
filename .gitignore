@@ -1,3 +1,11 @@
-data/
+data/coco/seaturtle.coco/annotations
+data/coco/seaturtle.coco/images
+data/mnist/
+data/loaded_data_test2019.p
+data/loaded_data_test2019_means_stds
+data/loaded_data_train2019_means_stds.p.p
+data/loaded_data_train2019.p
+data/loaded_data_val2019.p
+data/loaded_data_val2019_means_stds.p
 test.py
 pretrain.py
